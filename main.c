@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <tchar.h>
 #include <hidusage.h>
 #include <hidsdi.h>
@@ -26,6 +27,10 @@ enum XboxButtonCodes {
     Xbox_RightStick  =  9,
     Xbox_Home        = 10,
 };
+    
+// TODO(roger): Hardcoded size.
+#define BUTTON_COUNT 16
+bool buttonStates[16];
 
 void ShowErrorMessageBox(const char* message) {
     int response = MessageBox(NULL, message, "Assertion Failure", MB_ICONERROR | MB_OKCANCEL);
@@ -89,10 +94,15 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             status = HidP_GetUsages(HidP_Input, buttonCapabilities->UsagePage, 0, usages, &usageLength, preparsedData, 
                 (char*)device->bRawData, device->dwSizeHid);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button usages for device.");
-            
-            const char* buttonLabel = 0;
+
+            // NOTE(roger): flush button states on each event. This is how we know if the button was pressed or released.
+            memset(buttonStates, 0, BUTTON_COUNT * sizeof(bool));
             for (u32 i = 0; i < usageLength; i++) {
-                u32 index = usages[i] - buttonCapabilities->Range.UsageMin;                
+                u32 index = usages[i] - buttonCapabilities->Range.UsageMin;
+                buttonStates[index] = true;
+                
+                // NOTE(roger): Purely for logging purposes.
+                const char* buttonLabel = 0;
                 switch (index) {
                     case Xbox_ButtonA:     { buttonLabel = "A";            } break;
                     case Xbox_ButtonB:     { buttonLabel = "B";            } break;
@@ -171,9 +181,7 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                         } break;                        
                     }
                 }
-                                
             }
-
         } break;
         
         case WM_DESTROY: {
