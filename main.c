@@ -64,26 +64,16 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             
             // Now we determine the number of buttons
             
-            HIDP_CAPS capabilities;
-            NTSTATUS status = HidP_GetCaps(preparsedData, &capabilities);
+            HIDP_CAPS caps;
+            NTSTATUS status = HidP_GetCaps(preparsedData, &caps);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get capabilities for input.");
 
-            u16 capabilityLength = capabilities.NumberInputButtonCaps;
+            u16 capabilityLength = caps.NumberInputButtonCaps;
             PHIDP_BUTTON_CAPS buttonCapabilities = (PHIDP_BUTTON_CAPS)FrameAlloc(sizeof(HIDP_BUTTON_CAPS) * capabilityLength);
             status = HidP_GetButtonCaps(HidP_Input, buttonCapabilities, &capabilityLength, preparsedData);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button capabilities for input.");
             
             u32 numberOfButtons = buttonCapabilities->Range.UsageMax - buttonCapabilities->Range.UsageMin + 1;
-            
-            // Now get the value capability array. This array specifies capabailities of HID controls that can more than two states.
-            // These controls often have a range of values. 
-            //
-            // For example, an analog stick (four axes) can have a range of 0x00 to 0xFF where 0x80 equals centered position of the stick.
-            
-            capabilityLength = capabilities.NumberInputValueCaps;
-            PHIDP_VALUE_CAPS valueCapabilities = (PHIDP_VALUE_CAPS)FrameAlloc(sizeof(HIDP_VALUE_CAPS) * capabilityLength);
-            status = HidP_GetValueCaps(HidP_Input, valueCapabilities, &capabilityLength, preparsedData);
-            Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value capabilities for input.");
                                     
             u32 usageLength = numberOfButtons;
             USAGE *usages = FrameAlloc(usageLength * sizeof(USAGE));
@@ -96,7 +86,7 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             // For a simple button, this can mean pressed or released.
             // For a trigger, this can be a range based on pressure.
             // For a stick, this can be the range for an axis.
-            // The value of the input can be extracted from the 'valueCapabilities'.
+            // The value of the input can be extracted from the 'valueCaps'.
             
             // TODO(roger): How does D-Pad work? Pressing a D-Pad input changes the 'NumberInputValueCaps', but does not effect usageLength.
             
@@ -124,18 +114,43 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                 printf("Button: %s\n", buttonLabel);
             }
             
-            // Extract value for input. Released, pressed, etc.
+            // Extract value for input.
+            // Supposedly, we do not use this for simple buttons like A, and use it for things like Triggers and Sticks.
+            // However, caps.NumberInputValueCaps changes when pressing and releasing the A Button, so this is hard to believe.
+            // What seems to be recommended is we track previous and current values for simple buttons using usages (above), and use values (below) for more detailed input.
+            
+            capabilityLength = caps.NumberInputValueCaps;
+            PHIDP_VALUE_CAPS valueCaps = (PHIDP_VALUE_CAPS)FrameAlloc(sizeof(HIDP_VALUE_CAPS) * capabilityLength);
+            status = HidP_GetValueCaps(HidP_Input, valueCaps, &capabilityLength, preparsedData);
+            Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value capabilities for input.");
 
-            // TODO(roger): Time to figure out how this works...
-            // capabilities.NumberInputValueCap changes to 6 when pressing a button.
-                        
-            for (int i = 0; i < capabilities.NumberInputValueCaps; i++) {                
-                u32 value = 0;
-                status = HidP_GetUsageValue(HidP_Input, valueCapabilities[i].UsagePage, 0, valueCapabilities[i].Range.UsageMin, &value, 
-                    preparsedData, device->bRawData, device->dwSizeHid);
-                Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value for button.");
+            for (int i = 0; i < caps.NumberInputValueCaps; i++) {                
+                HIDP_VALUE_CAPS *valueCap = &valueCaps[i];
+                
+                // TODO(roger): Implement HidP_GetUsageValue
+                //
+                // u32 value = 0;
+                // status = HidP_GetUsageValue(HidP_Input, valueCapabilities[i].UsagePage, 0, valueCapabilities[i].Range.UsageMin, &value, 
+                //     preparsedData, device->bRawData, device->dwSizeHid);
+                // Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value for button.");
+                                
+                if (valueCap->IsRange) {
+                    // If valueCap->IsRange is false, then the usage is in valueCap->NotRange.Usage instead of Range.UsageMin / UsageMax.
 
-                printf("UsageMin: %hu, Value: %u\n", valueCapabilities[i].Range.UsageMin, value);
+                    // TODO(roger): Implement response? As far as I can tell, the Xbox input values are all returning IsRange == false.
+
+                    printf("Range Usage: %u - %u\n", valueCap->Range.UsageMin, valueCap->Range.UsageMax);
+                
+                } else if (valueCap->IsStringRange) {
+                    printf("String Range\n");
+                
+                } else if (valueCap->IsDesignatorRange) {
+                    printf("Designator Range\n");
+                
+                } else if (valueCap->IsAbsolute) {
+                    printf("Is Absolute\n");
+                    
+                }
             }
 
         } break;
