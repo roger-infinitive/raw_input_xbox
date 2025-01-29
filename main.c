@@ -27,13 +27,21 @@ enum XboxButtonCodes {
     Xbox_Home        = 10,
 };
 
+void ShowErrorMessageBox(const char* message) {
+    int response = MessageBox(NULL, message, "Assertion Failure", MB_ICONERROR | MB_OKCANCEL);
+    switch (response) {
+        case IDOK: { __debugbreak(); } break;
+    } 
+    TerminateProcess(GetCurrentProcess(), 1);
+}
+
 #define Assert(condition, message, ...) \
     do { \
         if (!(condition)) { \
             sprintf(ASSERT_MESSAGE, message, __VA_ARGS__); \
             sprintf(ASSERT_BOX_MESSAGE, "ERROR: %s\n\tAssertion failed: %s\n\tFile: %s, Line: %d\n", \
                 ASSERT_MESSAGE, #condition, __FILE__, __LINE__); \
-            MessageBoxA(0, ASSERT_BOX_MESSAGE, "Assert", MB_OK | MB_ICONERROR); \
+            ShowErrorMessageBox(ASSERT_BOX_MESSAGE); \
         } \
     } while (0)
 
