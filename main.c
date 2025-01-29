@@ -90,14 +90,6 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                 (char*)device->bRawData, device->dwSizeHid);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button usages for device.");
             
-            // 'usages' can be interpreted to figure out which input is changing value. 
-            // For a simple button, this can mean pressed or released.
-            // For a trigger, this can be a range based on pressure.
-            // For a stick, this can be the range for an axis.
-            // The value of the input can be extracted from the 'valueCaps'.
-            
-            // TODO(roger): How does D-Pad work? Pressing a D-Pad input changes the 'NumberInputValueCaps', but does not effect usageLength.
-            
             const char* buttonLabel = 0;
             for (u32 i = 0; i < usageLength; i++) {
                 u32 index = usages[i] - buttonCapabilities->Range.UsageMin;                
@@ -132,11 +124,10 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             for (int i = 0; i < caps.NumberInputValueCaps; i++) {                
                 HIDP_VALUE_CAPS *valueCap = &valueCaps[i];
                 
-                // For demonstration, assume usage page is Generic Desktop (0x01).
-                // Confirm if valueCap->UsagePage == 0x01 if you only want axes.
-                
                 if (valueCap->IsRange) {
-                    //TODO(roger): Implement? So far all value capabilities return IsRange = false.
+                    // TODO(roger): Implement? So far all value capabilities return IsRange = false.
+                    //
+                    // If IsRange is true, then you want to use valueCap->Range.UsageMin / UsageMax.
                 } else {
                     u16 usage = valueCap->NotRange.Usage;
                     
