@@ -28,7 +28,7 @@ enum XboxButtonCodes {
     Xbox_Home        = 10,
 };
     
-// TODO(roger): Hardcoded size.
+// TODO(roger): Hardcoded size for Xbox Controller.
 #define BUTTON_COUNT 16
 bool buttonStates[16];
 
@@ -81,24 +81,27 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             NTSTATUS status = HidP_GetCaps(preparsedData, &caps);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get capabilities for input.");
 
-            u16 capabilityLength = caps.NumberInputButtonCaps;
-            PHIDP_BUTTON_CAPS buttonCapabilities = (PHIDP_BUTTON_CAPS)FrameAlloc(sizeof(HIDP_BUTTON_CAPS) * capabilityLength);
-            status = HidP_GetButtonCaps(HidP_Input, buttonCapabilities, &capabilityLength, preparsedData);
+            u16 capLength = caps.NumberInputButtonCaps;
+            PHIDP_BUTTON_CAPS buttonCaps = (PHIDP_BUTTON_CAPS)FrameAlloc(sizeof(HIDP_BUTTON_CAPS) * capLength);
+            status = HidP_GetButtonCaps(HidP_Input, buttonCaps, &capLength, preparsedData);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button capabilities for input.");
             
-            u32 numberOfButtons = buttonCapabilities->Range.UsageMax - buttonCapabilities->Range.UsageMin + 1;
+            u32 numberOfButtons = buttonCaps->Range.UsageMax - buttonCaps->Range.UsageMin + 1;
+                          
+            // Determine active usages for the device. 
+            // For example, pressing A adds to the usages. Releasing A removes from the usages.               
                                     
             u32 usageLength = numberOfButtons;
             USAGE *usages = FrameAlloc(usageLength * sizeof(USAGE));
             
-            status = HidP_GetUsages(HidP_Input, buttonCapabilities->UsagePage, 0, usages, &usageLength, preparsedData, 
+            status = HidP_GetUsages(HidP_Input, buttonCaps->UsagePage, 0, usages, &usageLength, preparsedData, 
                 (char*)device->bRawData, device->dwSizeHid);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button usages for device.");
 
-            // NOTE(roger): flush button states on each event. This is how we know if the button was pressed or released.
+            // Flush button states on each event. This is how we know if the button was pressed or released.
             memset(buttonStates, 0, BUTTON_COUNT * sizeof(bool));
             for (u32 i = 0; i < usageLength; i++) {
-                u32 index = usages[i] - buttonCapabilities->Range.UsageMin;
+                u32 index = usages[i] - buttonCaps->Range.UsageMin;
                 buttonStates[index] = true;
                 
                 // NOTE(roger): Purely for logging purposes.
@@ -116,7 +119,7 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                     case Xbox_RightStick:  { buttonLabel = "Right Stick";  } break;
                     case Xbox_Home:        { buttonLabel = "Home";         } break;
                 
-                    default : {
+                    default: {
                         printf("Button Index: %u\n", index);
                     }
                 }
@@ -124,19 +127,20 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                 printf("Button: %s\n", buttonLabel);
             }
             
-            // Extract value for input.
+            // Extract values for 'valued' inputs like Joysticks, Triggers, and Dpad.
+            // For the Xbox Controller, there should be 6 value capabilities.
             
-            capabilityLength = caps.NumberInputValueCaps;
-            PHIDP_VALUE_CAPS valueCaps = (PHIDP_VALUE_CAPS)FrameAlloc(sizeof(HIDP_VALUE_CAPS) * capabilityLength);
-            status = HidP_GetValueCaps(HidP_Input, valueCaps, &capabilityLength, preparsedData);
+            capLength = caps.NumberInputValueCaps;
+            PHIDP_VALUE_CAPS valueCaps = (PHIDP_VALUE_CAPS)FrameAlloc(sizeof(HIDP_VALUE_CAPS) * capLength);
+            status = HidP_GetValueCaps(HidP_Input, valueCaps, &capLength, preparsedData);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value capabilities for input.");
 
             for (int i = 0; i < caps.NumberInputValueCaps; i++) {                
                 HIDP_VALUE_CAPS *valueCap = &valueCaps[i];
                 
                 if (valueCap->IsRange) {
-                    // TODO(roger): Implement? So far all value capabilities return IsRange = false.
-                    //
+                    // TODO(roger): Implement? So far all value capabilities return IsRange = false for the Xbox Controller.
+                    
                     // If IsRange is true, then you want to use valueCap->Range.UsageMin / UsageMax.
                 } else {
                     u16 usage = valueCap->NotRange.Usage;
@@ -157,18 +161,22 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                         } break;
                         
                         case 0x33: {
-                            printf("Right Stick X (Rx): %u\n", value);
+                            printf("Right Stick X: %u\n", value);
                         } break;
                         
                         case 0x34: {
-                            printf("Right Stick Y (Ry): %u\n", value);
+                            printf("Right Stick Y: %u\n", value);
                         } break;
                         
                         case 0x32: {
-                            // This updates for both triggers. The value range changes based on if its left or right trigger.
-                            // For example, Right Trigger return values between 32768 - 128. 
-                            // And Left Trigger returns values between 32768 - 65408.
-
+                            // This updates on both triggers. The value range differs based on left or right trigger.
+                            // For example, Right Trigger returns values between 32768 - 128. 
+                            // Left Trigger returns values between 32768 - 65408.
+                            // This value seems to be padded by 128 on both extremes. 
+                            
+                            // TODO(roger): How do we know if both triggers are being pressed at the same time?
+                            // There is some kind of pattern when testing the output.
+                            
                             printf("Z Trigger: %u\n", value);
                         } break;
                         
@@ -177,7 +185,7 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                         } break;
                         
                         default: {
-                            printf("Unknown Usage 0x%X => %lu\n", usage, value);
+                            printf("Unknown Usage 0x%X => %u\n", usage, value);
                         } break;                        
                     }
                 }
