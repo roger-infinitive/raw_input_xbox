@@ -92,74 +92,50 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                 (char*)device->bRawData, device->dwSizeHid);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button usages for device.");
             
-            // This handles button presses.
+            // 'usages' can be interpreted to figure out which input is changing value. 
+            // For a simple button, this can mean pressed or released.
+            // For a trigger, this can be a range based on pressure.
+            // For a stick, this can be the range for an axis.
+            // The value of the input can be extracted from the 'valueCapabilities'.
+            
+            // TODO(roger): How does D-Pad work? Pressing a D-Pad input changes the 'NumberInputValueCaps', but does not effect usageLength.
+            
+            const char* buttonLabel = 0;
             for (u32 i = 0; i < usageLength; i++) {
                 u32 index = usages[i] - buttonCapabilities->Range.UsageMin;                
                 switch (index) {
-                    case Xbox_ButtonA: {
-                        printf("A Button Pressed.\n");
-                    } break;
-                    
-                    case Xbox_ButtonB: {
-                        printf("B Button Pressed.\n");
-                    } break;
-                    
-                    case Xbox_ButtonX: {
-                        printf("X Button Pressed.\n");
-                    } break;
-                    
-                    case Xbox_ButtonY: {
-                        printf("Y Button Pressed.\n");
-                    } break;
-                    
-                    case Xbox_LeftBumper: {
-                        printf("Left Bumper Pressed.\n");
-                    } break;
-                    
-                    case Xbox_RightBumper: {
-                        printf("Right Bumper Pressed.\n");
-                    } break;
-                    
-                    case Xbox_Start: {
-                        printf("Start Pressed.\n");
-                    } break;
-                    
-                    case Xbox_Select: {
-                        printf("Select Pressed.\n");
-                    } break;
-                    
-                    case Xbox_LeftStick: {
-                        printf("Left Stick Pressed.\n");
-                    } break;
-                    
-                    case Xbox_RightStick: {
-                        printf("Right Stick Pressed.\n");
-                    } break;
-                    
-                    case Xbox_Home: {
-                        printf("Home Pressed.\n");
-                    } break;
-                    
+                    case Xbox_ButtonA:     { buttonLabel = "A";            } break;
+                    case Xbox_ButtonB:     { buttonLabel = "B";            } break;
+                    case Xbox_ButtonX:     { buttonLabel = "X";            } break;
+                    case Xbox_ButtonY:     { buttonLabel = "Y";            } break;
+                    case Xbox_LeftBumper:  { buttonLabel = "Left Bumper";  } break;
+                    case Xbox_RightBumper: { buttonLabel = "Right Bumper"; } break;
+                    case Xbox_Start:       { buttonLabel = "Start";        } break;
+                    case Xbox_Select:      { buttonLabel = "Select";       } break;
+                    case Xbox_LeftStick:   { buttonLabel = "Left Stick";   } break;
+                    case Xbox_RightStick:  { buttonLabel = "Right Stick";  } break;
+                    case Xbox_Home:        { buttonLabel = "Home";         } break;
+                
                     default : {
                         printf("Button Index: %u\n", index);
                     }
                 }
+                
+                printf("Button: %s\n", buttonLabel);
             }
             
-            // Handle 'valued' controls
+            // Extract value for input. Released, pressed, etc.
+
+            // TODO(roger): Time to figure out how this works...
+            // capabilities.NumberInputValueCap changes to 6 when pressing a button.
+                        
             for (int i = 0; i < capabilities.NumberInputValueCaps; i++) {                
                 u32 value = 0;
                 status = HidP_GetUsageValue(HidP_Input, valueCapabilities[i].UsagePage, 0, valueCapabilities[i].Range.UsageMin, &value, 
                     preparsedData, device->bRawData, device->dwSizeHid);
                 Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value for button.");
 
-                switch (valueCapabilities[i].Range.UsageMin) {
-                    default: {
-                        printf("UsageMin: %hu, Value: %u\n", valueCapabilities[i].Range.UsageMin, value);
-                    };
-                }
-                
-                break;
+                printf("UsageMin: %hu, Value: %u\n", valueCapabilities[i].Range.UsageMin, value);
             }
 
         } break;
