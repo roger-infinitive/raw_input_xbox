@@ -1,3 +1,9 @@
+// Links:
+// 
+// Usage Page and Usage IDs: https://learn.microsoft.com/en-us/windows/win32/xinput/directinput-and-xusb-devices#gamepad
+// Verbose Example: https://www.codeproject.com/articles/185522/using-the-raw-input-api-to-process-joystick-input
+// HID Clients Supported In Windows: https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/hid-architecture#hid-clients-supported-in-windows
+
 #include <windows.h>
 #include <stdio.h>
 #include <stdbool.h>
