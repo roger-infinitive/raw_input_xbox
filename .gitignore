@@ -1,0 +1,9 @@
+*.suo
+*.obj
+*.ilk
+*.pdb
+*.sln
+*.pak
+*.raddbgi
+*.rdi
+*.exe
