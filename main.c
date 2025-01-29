@@ -115,9 +115,6 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             }
             
             // Extract value for input.
-            // Supposedly, we do not use this for simple buttons like A, and use it for things like Triggers and Sticks.
-            // However, caps.NumberInputValueCaps changes when pressing and releasing the A Button, so this is hard to believe.
-            // What seems to be recommended is we track previous and current values for simple buttons using usages (above), and use values (below) for more detailed input.
             
             capabilityLength = caps.NumberInputValueCaps;
             PHIDP_VALUE_CAPS valueCaps = (PHIDP_VALUE_CAPS)FrameAlloc(sizeof(HIDP_VALUE_CAPS) * capabilityLength);
@@ -127,30 +124,55 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             for (int i = 0; i < caps.NumberInputValueCaps; i++) {                
                 HIDP_VALUE_CAPS *valueCap = &valueCaps[i];
                 
-                // TODO(roger): Implement HidP_GetUsageValue
-                //
-                // u32 value = 0;
-                // status = HidP_GetUsageValue(HidP_Input, valueCapabilities[i].UsagePage, 0, valueCapabilities[i].Range.UsageMin, &value, 
-                //     preparsedData, device->bRawData, device->dwSizeHid);
-                // Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value for button.");
-                                
+                // For demonstration, assume usage page is Generic Desktop (0x01).
+                // Confirm if valueCap->UsagePage == 0x01 if you only want axes.
+                
                 if (valueCap->IsRange) {
-                    // If valueCap->IsRange is false, then the usage is in valueCap->NotRange.Usage instead of Range.UsageMin / UsageMax.
-
-                    // TODO(roger): Implement response? As far as I can tell, the Xbox input values are all returning IsRange == false.
-
-                    printf("Range Usage: %u - %u\n", valueCap->Range.UsageMin, valueCap->Range.UsageMax);
-                
-                } else if (valueCap->IsStringRange) {
-                    printf("String Range\n");
-                
-                } else if (valueCap->IsDesignatorRange) {
-                    printf("Designator Range\n");
-                
-                } else if (valueCap->IsAbsolute) {
-                    printf("Is Absolute\n");
+                    //TODO(roger): Implement? So far all value capabilities return IsRange = false.
+                } else {
+                    u16 usage = valueCap->NotRange.Usage;
                     
+                    u32 value = 0;
+                    status = HidP_GetUsageValue(HidP_Input, valueCap->UsagePage, 0, usage, &value, 
+                        preparsedData, device->bRawData, device->dwSizeHid);
+                    Assert(status == HIDP_STATUS_SUCCESS, "Failed to get value for button.");
+                    
+                    // Now interpret usage + value
+                    switch (usage) {
+                        case 0x30: {
+                            printf("Left Stick X: %u\n", value);
+                        } break;
+                            
+                        case 0x31: {
+                            printf("Left Stick Y: %u\n", value);
+                        } break;
+                        
+                        case 0x33: {
+                            printf("Right Stick X (Rx): %u\n", value);
+                        } break;
+                        
+                        case 0x34: {
+                            printf("Right Stick Y (Ry): %u\n", value);
+                        } break;
+                        
+                        case 0x32: {
+                            // This updates for both triggers. The value range changes based on if its left or right trigger.
+                            // For example, Right Trigger return values between 32768 - 128. 
+                            // And Left Trigger returns values between 32768 - 65408.
+
+                            printf("Z Trigger: %u\n", value);
+                        } break;
+                        
+                        case 0x39: {
+                            printf("Hat Switch (D-Pad): %u\n", value);
+                        } break;
+                        
+                        default: {
+                            printf("Unknown Usage 0x%X => %lu\n", usage, value);
+                        } break;                        
+                    }
                 }
+                                
             }
 
         } break;
