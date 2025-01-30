@@ -104,8 +104,14 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                 (char*)device->bRawData, device->dwSizeHid);
             Assert(status == HIDP_STATUS_SUCCESS, "Failed to get button usages for device.");
 
-            // Flush button states on each event. This is how we know if the button was pressed or released.
+            // An event is sent when a button is pressed and released. 
+            // However, released buttons do not count as a usage, so they do not appear in the usage loop below. 
+            // So we flush the button states to false before looping through usages, which sets pressed buttons to true.
+            // We can check if a button was pressed and released by using another array to track of the previous button state.
+            //
+            // TODO(roger): Add previousStates to show this.
             memset(buttonStates, 0, BUTTON_COUNT * sizeof(bool));
+
             for (u32 i = 0; i < usageLength; i++) {
                 u32 index = usages[i] - buttonCaps->Range.UsageMin;
                 buttonStates[index] = true;
