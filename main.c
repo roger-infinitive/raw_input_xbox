@@ -37,6 +37,7 @@ enum XboxButtonCodes {
 // TODO(roger): Hardcoded size for Xbox Controller.
 #define BUTTON_COUNT 16
 bool buttonStates[16];
+bool previousStates[16];
 
 void ShowErrorMessageBox(const char* message) {
     int response = MessageBox(NULL, message, "Assertion Failure", MB_ICONERROR | MB_OKCANCEL);
@@ -108,8 +109,7 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             // However, released buttons do not count as a usage, so they do not appear in the usage loop below. 
             // So we flush the button states to false before looping through usages, which sets pressed buttons to true.
             // We can check if a button was pressed and released by using another array to track of the previous button state.
-            //
-            // TODO(roger): Add previousStates to show this.
+            memcpy(previousStates, buttonStates, BUTTON_COUNT * sizeof(bool));
             memset(buttonStates, 0, BUTTON_COUNT * sizeof(bool));
 
             for (u32 i = 0; i < usageLength; i++) {
@@ -255,11 +255,21 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         return 1;
     }
 
+    u32 counter = 0;
+
     // Main Loop
     MSG message;
     while (GetMessage(&message, 0, 0, 0)) {
         TranslateMessage(&message);
         DispatchMessage(&message);
+        
+        if (buttonStates[Xbox_ButtonA] && !previousStates[Xbox_ButtonA]) {
+            counter++;
+            printf("%u\n", counter);
+        }
+        
+        //Simulate Lag
+        Sleep(500);
     }
 
     return 0;
