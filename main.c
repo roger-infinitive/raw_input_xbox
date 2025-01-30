@@ -181,13 +181,20 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
                         } break;
                         
                         case 0x32: {
-                            // This updates on both triggers. The value range differs based on left or right trigger.
+                            // Using RawInput, it is not possible to distinguish between the Left and Right Trigger buttons. 
+                            // This is a limitation of the HID interface. 
+                            // Classically, it was assumed that device axes are centered when there is no user interaction with the
+                            // device. However, newer controllers were designed to register the minimum value, not center,
+                            // when the triggers are not being held.
+                            //
+                            // In their ultimate wisdom, Microsoft decided the solution was to combine the triggers, setting one in 
+                            // the position direction and the other in the negative. Dumb.
+                            
                             // For example, Right Trigger returns values between 32768 - 128. 
                             // Left Trigger returns values between 32768 - 65408.
                             // This value seems to be padded by 128 on both extremes. 
                             
-                            // TODO(roger): How do we know if both triggers are being pressed at the same time?
-                            // There is some kind of pattern when testing the output.
+                            // If you want to distinguish between triggers, you must use XInput.
                             
                             printf("Z Trigger: %u\n", value);
                         } break;
@@ -256,6 +263,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     u32 counter = 0;
+    
+    printf("%llu\n", sizeof(HIDP_VALUE_CAPS));
 
     // Main Loop
     MSG message;
@@ -268,8 +277,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
             printf("%u\n", counter);
         }
         
-        //Simulate Lag
-        Sleep(500);
+        // Simulate lag to see if we can receive all inputs.
+        // Sleep(500);
     }
 
     return 0;
